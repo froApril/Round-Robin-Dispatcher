@@ -9,8 +9,11 @@ int main(int argc, char*argv[]){
 	PcbPtr process = NULL;
 	int timer = 0;
 	int time_quantum = 0;
-	int quantum = 1;
+	int quantum = 0;
 	int current_running_time =0;
+	double total_turnaround_time=0;
+	double total_waiting_time=0;
+	double process_num = 0;
 
 	if (argc <= 0)
     {
@@ -28,9 +31,17 @@ int main(int argc, char*argv[]){
         fprintf(stderr, "ERROR: Could not open \"%s\"\n", argv[1]);
         exit(EXIT_FAILURE);
     }
+
+
+    printf("COMP3520 assignment2 part 1.\n");
+    printf("SID: 470014208, unikey: yixu5881\n");
+
+
+
     // fill job dispatch from file
     while(!feof(input_list_stream)){
     	process = createnullPcb();
+    	process_num++;
         if (fscanf(input_list_stream,"%d, %d",
              &(process->arrival_time), 
              &(process->service_time)) != 2) {
@@ -62,29 +73,25 @@ int main(int argc, char*argv[]){
 		// ii. If a process is currently running
 		if(current_process){
 			//a. Decrease process remaining_cpu_time by quantum;
-			current_process->remaining_cpu_time--;
-			current_running_time++;
-			// printf("current_running_time: %d\n",current_running_time );
-			// printf("remaining_cpu_time: %d\n",current_process->remaining_cpu_time);
+			current_process->remaining_cpu_time-=quantum;
 			//b. If times up
-			if(current_process->remaining_cpu_time<1){
+			if(current_process->remaining_cpu_time==0){
 				// A. terminate the process
 				terminatePcb(current_process);
-				// B. Deallocate the PCB
+				// B. record Turnaround time
+				total_turnaround_time+=(timer-current_process->arrival_time);
+				// C. calculate waiting time
+				total_waiting_time += (timer-current_process->arrival_time-current_process->service_time);
+				// D. Deallocate the PCB
 				free(current_process);
 				current_process = NULL;
-				current_running_time=0;
 
 			}
 			// out of the time allowed for one process
-			else if(current_running_time>=time_quantum && rrd_queue){
-				printf("here");
-			
+			else if(rrd_queue){			
 				suspendPcb(current_process);
 				rrd_queue = enqPcb(rrd_queue,current_process);
 				current_process = NULL;
-				current_running_time = 0;
-				
 			}
 			
 		}
@@ -92,18 +99,36 @@ int main(int argc, char*argv[]){
 		if(!current_process && rrd_queue){
 			current_process = deqPcb(&rrd_queue);
 			if(current_process->status == PCB_SUSPENDED){
+				// restartPcb(current_process);
+				printPcbHdr();
+				current_process->status = PCB_RUNNING;
+				printPcb(current_process);
 				kill(current_process->pid, SIGCONT);
 			}
 			else{
 				startPcb(current_process);
 			}
-			current_running_time=0;
 
 		}
-		sleep(quantum);
-		timer++;
-    }
 
+		if(current_process){
+			if(current_process->remaining_cpu_time<=time_quantum){
+				timer+=current_process->remaining_cpu_time;
+				quantum = current_process->remaining_cpu_time;
+			}
+			else{
+				timer+=time_quantum;
+				quantum = time_quantum;
+			}
+			sleep(quantum);
+		}
+		else{
+			timer++;
+		}
+		
+    }
+    printf("The average turnaround time is: %.2f\n", (total_turnaround_time/process_num));
+    printf("The average waiting time is: %.2f\n", (total_waiting_time/process_num) );
     exit(EXIT_SUCCESS);
 
 

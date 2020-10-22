@@ -50,5 +50,6 @@ PcbPtr createnullPcb();
 PcbPtr enqPcb(PcbPtr, PcbPtr);
 PcbPtr deqPcb(PcbPtr*);
 PcbPtr suspendPcb(PcbPtr);
+PcbPtr restartPcb(PcbPtr);
 
 #endif
